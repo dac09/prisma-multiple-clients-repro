@@ -1,27 +1,50 @@
-# Redwood
+### Prisma multiple clients in Yarn 1 Workspace reproduction
 
-> **NOTICE:** RedwoodJS is very close to a stable version 1.0. In the last two years,
-> the project has matured significantly and is already used in production by a number
-> of startups. We intend to have a 1.0 release candidate before the end of 2021 and
-> to release a truly production-ready 1.0 in early 2022.
-
-## Getting Started
-- [Tutorial](https://redwoodjs.com/tutorial/welcome-to-redwood): getting started and complete overview guide.
-- [Docs](https://redwoodjs.com/docs/introduction): using the Redwood Router, handling assets and files, list of command-line tools, and more.
-- [Redwood Community](https://community.redwoodjs.com): get help, share tips and tricks, and collaborate on everything about RedwoodJS.
-
-### Setup
-
-We use Yarn as our package manager. To get the dependencies installed, just do this in the root directory:
-
-```terminal
-yarn install
+Steps to reproduce:
+1. Check that theres no prisma folder in api/node_modules
+```
+ls -la api/node_modules
+```
+2. Go into api and generate prisma client
+```
+cd api && yarn rw prisma generate
+```
+3. Notice that prisma has now been generated in api node_modules
+```
+❯ ls -a api/node_modules
+.       ..      .prisma
 ```
 
-### Fire it up
+And to see the actual problem this causes run:
 
-```terminal
-yarn redwood dev
+```
+yarn rw prisma migrate dev
+# equivalent to
+# yarn prisma migrate dev --schema "./api/db/schema.prisma"
 ```
 
-Your browser should open automatically to `http://localhost:8910` to see the web app. Lambda functions run on `http://localhost:8911` and are also proxied to `http://localhost:8910/.redwood/functions/*`.
+and then
+```
+yarn rw prisma db seed
+```
+
+
+You should see an error like this:
+```
+PrismaClientKnownRequestError:
+Invalid `db.post.create()` invocation in
+/Users/dac09/Experiments/prisma-repro/scripts/seed.ts:24:41
+
+  21
+  22 Promise.all(
+  23   posts.map(async (post) => {
+→ 24     const newPost = await db.post.create(
+  The table `main.Post` does not exist in the current database.
+    at Object.request (/Users/dac09/Experiments/prisma-repro/node_modules/@prisma/client/runtime/index.js:39809:15)
+    at PrismaClient._request (/Users/dac09/Experiments/prisma-repro/node_modules/@prisma/client/runtime/index.js:40637:18)
+    at /Users/dac09/Experiments/prisma-repro/scripts/seed.ts:24:27
+    at async Promise.all (index 0) {
+  code: 'P2021',
+  clientVersion: '3.10.0',
+  meta: { table: 'main.Post' }
+  ```
